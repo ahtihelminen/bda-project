@@ -74,15 +74,12 @@ def boxes_to_patch_labels(
 
     # normalize timestamps so first annotation is at t = 0
     df_boxes = df_boxes.copy()
-    t0 = df_boxes["timestamp_s"].min()
-    # df_boxes["t_rel_s"] = df_boxes["timestamp_s"] - t0
-    df_boxes["t_rel_s"] = df_boxes["timestamp_s"]
 
     # how many bins do we actually have? -> from DatFileSource windows
     total_bins = len(src)
 
     # map boxes -> bin indices in [0, total_bins-1]
-    df_boxes["time_bin"] = np.floor(df_boxes["t_rel_s"] / window_s).astype(int)
+    df_boxes["time_bin"] = np.floor(df_boxes["timestamp_s"] / window_s).astype(int)
     df_boxes = df_boxes[
         (df_boxes["time_bin"] >= 0) & (df_boxes["time_bin"] < total_bins)
     ]
@@ -121,48 +118,29 @@ def boxes_to_patch_labels(
 
     if rows:
         df_pos = pd.DataFrame(rows, columns=["sequence", "patch_id", "time_bin", "z"])
-        df_pos = df_pos.groupby(["sequence", "patch_id", "time_bin"]).max().reset_index()
+        df_pos = (
+            df_pos.groupby(["sequence", "patch_id", "time_bin"]).max().reset_index()
+        )
     else:
         print("WARNING: no boxes mapped into any time_bin; all labels will be 0")
         df_pos = pd.DataFrame(columns=["sequence", "patch_id", "time_bin", "z"])
 
-    # build full background table over all bins and patches
-    all_patch_ids = np.arange(grid_rows * grid_cols)
-    df_full = []
-    for b in range(total_bins):
-        df_full.append(
-            pd.DataFrame(
-                {
-                    "sequence": sequence,
-                    "patch_id": all_patch_ids,
-                    "time_bin": b,
-                }
-            )
-        )
-    df_full = pd.concat(df_full, ignore_index=True)
-
-    # left-join positives
-    df = df_full.merge(
-        df_pos,
-        on=["sequence", "patch_id", "time_bin"],
-        how="left",
-    )
-    df["z"] = df["z"].fillna(0).astype(int)
-
     print(
         "time_bin range in final label table:",
-        int(df["time_bin"].min()),
+        int(df_pos["time_bin"].min()),
         "→",
-        int(df["time_bin"].max()),
+        int(df_pos["time_bin"].max()),
         f"(total_bins={total_bins})",
     )
 
-    return df
+    return df_pos
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--labels-txt", required=True, help="interpolated_coordinates.txt")
+    parser.add_argument(
+        "--labels-txt", required=True, help="interpolated_coordinates.txt"
+    )
     parser.add_argument("--dat", required=True, help="Recording .dat file")
     parser.add_argument("--window-ms", type=float, default=10.0)
     parser.add_argument("--grid-rows", type=int, default=9)

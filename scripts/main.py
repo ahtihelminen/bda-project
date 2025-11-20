@@ -192,13 +192,14 @@ def compute_patch_probs(
 
     return p1.reshape(counts.shape)
 
+
 def draw_prob_heatmap(
     frame: np.ndarray,
     probs: np.ndarray,
     rows: int,
     cols: int,
     alpha: float = 0.5,
-    p_vis: float = 0.1,   # show color only if p(z=1|y) >= 0.2
+    p_vis: float = 0.5,  # minimum probability to start visualizing
 ) -> None:
     h, w = frame.shape[:2]
     patch_w = w / cols
@@ -212,14 +213,21 @@ def draw_prob_heatmap(
         for c in range(cols):
             p = float(np.clip(probs[r, c], 0.0, 1.0))
 
-            # below threshold → no overlay, keep original frame
+            # below threshold -> do not color this patch
             if p < p_vis:
                 continue
 
-            # map [p_vis, 1] → [0, 1] for intensity
+            # normalize into [0,1] range for gradient
             p_scaled = (p - p_vis) / (1.0 - p_vis)
-            intensity = int(round(255 * np.clip(p_scaled, 0.0, 1.0)))
-            color = (0, 0, intensity)  # BGR
+            p_scaled = float(np.clip(p_scaled, 0.0, 1.0))
+
+            # BLUE → RED gradient in BGR:
+            #   blue = 255*(1 - p_scaled)
+            #   red  = 255*p_scaled
+            blue = int(round(255 * (1.0 - p_scaled)))
+            red = int(round(255 * p_scaled))
+            green = 0
+            color = (blue, green, red)  # BGR
 
             x0 = int(round(c * patch_w))
             x1 = int(round((c + 1) * patch_w))
@@ -242,7 +250,7 @@ def compute_patch_counts_for_window(
     width: int,
     height: int,
 ) -> np.ndarray:
-    """Bin events of the current window into a rows×cols grid."""
+    """Bin events of the current window into a rows x cols grid."""
     counts = np.zeros((rows, cols), dtype=np.int32)
     if x_coords.size == 0:
         return counts
@@ -322,7 +330,7 @@ def main() -> None:
     parser.add_argument(
         "--heatmap-alpha",
         type=float,
-        default=0.4,
+        default=0.8,
         help="Alpha blending for the probability heatmap.",
     )
 

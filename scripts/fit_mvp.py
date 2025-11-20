@@ -4,6 +4,7 @@ import argparse
 import pymc as pm
 from evio.source.dat_file import DatFileSource
 
+
 def get_window(
     event_words: np.ndarray,
     time_order: np.ndarray,
@@ -18,7 +19,6 @@ def get_window(
     pixel_polarity = ((words >> 28) & 0xF) > 0
 
     return x_coords, y_coords, pixel_polarity
-
 
 
 def build_mvp_table(
@@ -63,10 +63,9 @@ def build_mvp_table(
             y_count = int(counts[pid])
             rows.append((sequence_id, pid, time_bin, y_count))
 
-    df = pd.DataFrame(
-        rows, columns=["sequence", "patch_id", "time_bin", "y"]
-    )
-    return df
+    counts = pd.DataFrame(rows, columns=["sequence", "patch_id", "time_bin", "y"])
+    return counts
+
 
 def fit_nb_model(
     df: pd.DataFrame,
@@ -142,19 +141,8 @@ def fit_nb_model(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("dat", help="Path to .dat file")
-    
     parser.add_argument(
         "--window", type=float, default=10, help="Window duration in ms"
-    )
-    parser.add_argument(
-        "--export-csv",
-        type=str,
-        default=None,
-        help=(
-            "If set, build MVP table (sequence,patch_id,time_bin,y) from the "
-            "opened .dat file and save it here instead of playing video."
-        ),
     )
     parser.add_argument(
         "--grid-rows",
@@ -171,29 +159,34 @@ def main() -> None:
     parser.add_argument(
         "--labels-csv",
         type=str,
+        help=("CSV with labels (sequence,patch_id,time_bin,z). "),
+    )
+    parser.add_argument(
+        "--counts-parquet",
+        type=str,
         default=None,
         help=(
-            "Optional CSV with labels (sequence,patch_id,time_bin,z). "
-            "If given and --fit-model is set, these are merged before fitting."
+            "Parquet file with per-patch per-bin event counts (sequence,patch_id,time_bin,y)."
+            "If provided, skips building counts from .dat."
         ),
     )
     parser.add_argument(
-        "--fit-model",
-        action="store_true",
-        help=(
-            "Fit the MVP Negative-Binomial model on the built table. "
-            "Requires labels (column z)."
-        ),
+        "--dat",
+        type=str,
+        default=None,
+        help="Path to .dat file. Not used if --counts-parquet is provided.",
     )
+
     args = parser.parse_args()
 
-    src = DatFileSource(
-        args.dat, width=1280, height=720, window_length_us=args.window * 1000
-    )
-
-    # --- Data prep / model mode ---
-    if args.export_csv is not None:
-        df = build_mvp_table(
+    if args.counts_parquet is not None:
+        counts = pd.read_parquet(args.counts_parquet)
+        print(f"Loaded counts from {args.counts_parquet} with {len(counts)} rows.")
+    else:
+        src = DatFileSource(
+            args.dat, width=1280, height=720, window_length_us=args.window * 1000
+        )
+        counts = build_mvp_table(
             src,
             grid_rows=args.grid_rows,
             grid_cols=args.grid_cols,
@@ -201,29 +194,30 @@ def main() -> None:
             height=720,
             sequence_id=0,
         )
-        if args.labels_csv is not None:
-            labels = pd.read_csv(args.labels_csv)
-            # Expect labels to have: sequence, patch_id, time_bin, z
-            df = df.merge(
-                labels,
-                on=["sequence", "patch_id", "time_bin"],
-                how="left",
-            )
 
-        df.to_csv(args.export_csv, index=False)
-        print(f"Exported MVP table with {len(df)} rows to {args.export_csv}")
+        counts.to_parquet("./data/counts.parquet", index=False)
+        print(f"Exported MVP table with {len(counts)} rows to ./data/counts.parquet")
 
-        if args.fit_model:
-            if "z" not in df.columns:
-                raise RuntimeError(
-                    "Cannot fit model: no 'z' column found. "
-                    "Provide --labels-csv with labels."
-                )
-            params = fit_nb_model(df)
-            print("Fitted MVP Negative Binomial model parameters (MAP):")
-            for k, v in params.items():
-                print(f"  {k}: {v:.4f}")
-        return
+    if args.labels_csv is not None:
+        labels = pd.read_csv(args.labels_csv)
+        # Expect labels to have: sequence, patch_id, time_bin, z
+        counts = counts.merge(
+            labels,
+            on=["sequence", "patch_id", "time_bin"],
+            how="left",
+        )
+        counts["z"] = counts["z"].fillna(0).astype(int)
+
+    if "z" not in counts.columns:
+        raise RuntimeError(
+            "Cannot fit model: no 'z' column found. Provide --labels-csv with labels."
+        )
+    params = fit_nb_model(counts)
+    print("Fitted MVP Negative Binomial model parameters (MAP):")
+    for k, v in params.items():
+        print(f"  {k}: {v:.4f}")
+
+    return
 
 
 if __name__ == "__main__":
