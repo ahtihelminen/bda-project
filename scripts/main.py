@@ -390,7 +390,7 @@ def main() -> None:
             )
 
         # Grid overlay on top
-        draw_grid(frame, rows=args.grid_rows, cols=args.grid_cols)
+        # draw_grid(frame, rows=args.grid_rows, cols=args.grid_cols)
 
         cv2.imshow("Evio Player", frame)
 
