@@ -120,33 +120,6 @@ def draw_grid(
 # ---------- NB classifier helpers ----------
 
 
-def _log_nb_pmf(y: np.ndarray, mu: float, phi: float) -> np.ndarray:
-    """
-    Negative binomial log pmf with mean mu and dispersion phi:
-
-        Var(Y) = mu + mu^2 / phi
-
-    p(y | mu, phi) = NB(y; r=phi, p = phi / (phi + mu))
-    """
-    # Ensure float array
-    y = y.astype(np.float64, copy=False)
-
-    r = phi
-    p = phi / (phi + mu)  # success prob
-    # log C(y + r - 1, y) = lgamma(y+r) - lgamma(r) - lgamma(y+1)
-    return (
-        math.lgamma(r + 0.0)
-        - math.lgamma(r)
-        + 0.0 * y  # broadcast shape hack if needed
-    ) + (
-        np.vectorize(math.lgamma)(y + r)
-        - math.lgamma(r)
-        - np.vectorize(math.lgamma)(y + 1.0)
-        + r * math.log(p)
-        + y * math.log(1.0 - p)
-    )
-
-
 def _log_nb_pmf_scalar(y: int, mu: float, phi: float) -> float:
     r = phi
     p = phi / (phi + mu)

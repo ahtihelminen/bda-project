@@ -1,3 +1,4 @@
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import argparse
@@ -115,27 +116,27 @@ def fit_nb_model(
         log_phi0 = pm.Normal("log_phi0", mu=0.0, sigma=1.0)
         log_phi1 = pm.Normal("log_phi1", mu=0.0, sigma=1.0)
 
-        mu0 = pm.Deterministic("mu0", pm.math.exp(log_mu0))
-        mu1 = pm.Deterministic("mu1", pm.math.exp(log_mu1))
-        alpha0 = pm.Deterministic("alpha0", pm.math.exp(log_phi0))
-        alpha1 = pm.Deterministic("alpha1", pm.math.exp(log_phi1))
+        mu0 = pm.Deterministic("mu0", pm.math.exp(log_mu0))  # type: ignore
+        mu1 = pm.Deterministic("mu1", pm.math.exp(log_mu1))  # type: ignore
+        alpha0 = pm.Deterministic("alpha0", pm.math.exp(log_phi0))  # type: ignore
+        alpha1 = pm.Deterministic("alpha1", pm.math.exp(log_phi1))  # type: ignore
 
-        mu = pm.math.where(z == 1, mu1, mu0)
-        alpha = pm.math.where(z == 1, alpha1, alpha0)
+        mu = pm.math.where(z == 1, mu1, mu0)  # type: ignore
+        alpha = pm.math.where(z == 1, alpha1, alpha0)  # type: ignore
 
         pm.NegativeBinomial("y_obs", mu=mu, alpha=alpha, observed=y)
 
         map_est = pm.find_MAP(method="L-BFGS-B", progressbar=True)
 
     return {
-        "mu0": float(map_est["mu0"]),
-        "mu1": float(map_est["mu1"]),
-        "phi0": float(map_est["alpha0"]),
-        "phi1": float(map_est["alpha1"]),
-        "log_mu0": float(map_est["log_mu0"]),
-        "log_mu1": float(map_est["log_mu1"]),
-        "log_phi0": float(map_est["log_phi0"]),
-        "log_phi1": float(map_est["log_phi1"]),
+        "mu0": float(map_est["mu0"]),  # type: ignore
+        "mu1": float(map_est["mu1"]),  # type: ignore
+        "phi0": float(map_est["alpha0"]),  # type: ignore
+        "phi1": float(map_est["alpha1"]),  # type: ignore
+        "log_mu0": float(map_est["log_mu0"]),  # type: ignore
+        "log_mu1": float(map_est["log_mu1"]),  # type: ignore
+        "log_phi0": float(map_est["log_phi0"]),  # type: ignore
+        "log_phi1": float(map_est["log_phi1"]),  # type: ignore
     }
 
 
@@ -194,10 +195,13 @@ def main() -> None:
             height=720,
             sequence_id=0,
         )
-
-        counts.to_parquet("./data/counts.parquet", index=False)
-        print(f"Exported MVP table with {len(counts)} rows to ./data/counts.parquet")
-
+        labels_path = Path(args.labels_csv)
+        labels_file_name = labels_path.stem
+        parquet_file_name = f"counts_{labels_file_name.split('_', 1)[-1]}.parquet"
+        counts.to_parquet(f"./data/{parquet_file_name}", index=False)
+        print(
+            f"Exported MVP table with {len(counts)} rows to ./data/{parquet_file_name}"
+        )
     if args.labels_csv is not None:
         labels = pd.read_csv(args.labels_csv)
         # Expect labels to have: sequence, patch_id, time_bin, z
