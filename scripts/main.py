@@ -199,7 +199,7 @@ def draw_prob_heatmap(
     rows: int,
     cols: int,
     alpha: float = 0.5,
-    p_vis: float = 0.5,  # minimum probability to start visualizing
+    p_vis: float = 0.2,  # minimum probability to start visualizing
 ) -> None:
     h, w = frame.shape[:2]
     patch_w = w / cols
