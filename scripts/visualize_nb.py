@@ -7,6 +7,7 @@ import numpy as np
 from evio.core.pacer import Pacer
 from evio.source.dat_file import DatFileSource
 from bda.counts import compute_patch_counts_for_window
+from bda.neg_binomial import log_nb_pmf_scalar
 from bda.rendering import (
     get_window, 
     get_frame, 
@@ -15,24 +16,11 @@ from bda.rendering import (
     draw_prob_heatmap
 )
 
-
-
-def log_nb_pmf_scalar(y: int, mu: float, phi: float) -> float:
-    r = phi
-    p = phi / (phi + mu)
-    return (
-        math.lgamma(y + r)
-        - math.lgamma(r)
-        - math.lgamma(y + 1.0)
-        + r * math.log(p)
-        + y * math.log(1.0 - p)
-    )
-
 def compute_patch_probs(
     counts: np.ndarray,
     mu0: float,
     mu1: float,
-    phi0: float,
+    phi0: float, 
     phi1: float,
     prior_drone: float,
 ) -> np.ndarray:
