@@ -1,72 +1,10 @@
 from pathlib import Path
-import numpy as np
 import pandas as pd
 import argparse
 import pymc as pm
 from evio.source.dat_file import DatFileSource
 
-
-def get_window(
-    event_words: np.ndarray,
-    time_order: np.ndarray,
-    win_start: int,
-    win_stop: int,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    # get indexes corresponding to events within the window
-    event_indexes = time_order[win_start:win_stop]
-    words = event_words[event_indexes].astype(np.uint32, copy=False)
-    x_coords = (words & 0x3FFF).astype(np.int32, copy=False)
-    y_coords = ((words >> 14) & 0x3FFF).astype(np.int32, copy=False)
-    pixel_polarity = ((words >> 28) & 0xF) > 0
-
-    return x_coords, y_coords, pixel_polarity
-
-
-def build_mvp_table(
-    src: DatFileSource,
-    grid_rows: int,
-    grid_cols: int,
-    *,
-    width: int = 1280,
-    height: int = 720,
-    sequence_id: int = 0,
-) -> pd.DataFrame:
-    """
-    Build the MVP table:
-        (sequence, patch_id, time_bin, y)
-
-    y = event count in patch over one window (bin).
-    """
-    patch_w = width // grid_cols
-    patch_h = height // grid_rows
-    num_patches = grid_rows * grid_cols
-
-    rows: list[tuple[int, int, int, int]] = []
-
-    for time_bin, batch_range in enumerate(src.ranges()):
-        x_coords, y_coords, _ = get_window(
-            src.event_words,
-            src.order,
-            batch_range.start,
-            batch_range.stop,
-        )
-        if x_coords.size == 0:
-            counts = np.zeros(num_patches, dtype=np.int32)
-        else:
-            # map pixels -> patch indices
-            patch_x = np.clip(x_coords // patch_w, 0, grid_cols - 1)
-            patch_y = np.clip(y_coords // patch_h, 0, grid_rows - 1)
-            patch_id = patch_y * grid_cols + patch_x
-
-            counts = np.bincount(patch_id, minlength=num_patches)
-
-        for pid in range(num_patches):
-            y_count = int(counts[pid])
-            rows.append((sequence_id, pid, time_bin, y_count))
-
-    counts = pd.DataFrame(rows, columns=["sequence", "patch_id", "time_bin", "y"])
-    return counts
-
+from bda.counts import build_counts_table
 
 def fit_nb_model(
     df: pd.DataFrame,
@@ -187,7 +125,7 @@ def main() -> None:
         src = DatFileSource(
             args.dat, width=1280, height=720, window_length_us=args.window * 1000
         )
-        counts = build_mvp_table(
+        counts = build_counts_table(
             src,
             grid_rows=args.grid_rows,
             grid_cols=args.grid_cols,
