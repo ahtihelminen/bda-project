@@ -120,7 +120,7 @@ def draw_grid(
 # ---------- NB classifier helpers ----------
 
 
-def _log_nb_pmf_scalar(y: int, mu: float, phi: float) -> float:
+def log_nb_pmf_scalar(y: int, mu: float, phi: float) -> float:
     r = phi
     p = phi / (phi + mu)
     return (
@@ -150,11 +150,11 @@ def compute_patch_probs(
     # vectorized over counts
     counts_flat = counts.astype(np.int64, copy=False).ravel()
     log_p0 = np.array(
-        [_log_nb_pmf_scalar(int(y), mu0, phi0) for y in counts_flat],
+        [log_nb_pmf_scalar(int(y), mu0, phi0) for y in counts_flat],
         dtype=np.float64,
     ) + math.log(pi0)
     log_p1 = np.array(
-        [_log_nb_pmf_scalar(int(y), mu1, phi1) for y in counts_flat],
+        [log_nb_pmf_scalar(int(y), mu1, phi1) for y in counts_flat],
         dtype=np.float64,
     ) + math.log(pi1)
 
