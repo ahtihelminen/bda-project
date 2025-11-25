@@ -9,7 +9,7 @@ from bda.counts import build_counts_table
 def fit_nb_model(
     df: pd.DataFrame,
     *,
-    max_samples: int = 10000,
+    max_samples: int = 30000,
     random_state: int = 1337,
 ) -> dict[str, float]:
     """
@@ -115,6 +115,12 @@ def main() -> None:
         default=None,
         help="Path to .dat file. Not used if --counts-parquet is provided.",
     )
+    parser.add_argument(
+        "--output-csv",
+        type=str,
+        default="./data/nb_global_means.csv",
+        help="Where to save the MAP NB parameter CSV.",
+    )
 
     args = parser.parse_args()
 
@@ -159,7 +165,15 @@ def main() -> None:
     for k, v in params.items():
         print(f"  {k}: {v:.4f}")
 
-    return
+    # Save CSV
+    output_csv_path = Path(args.output_csv)
+    output_csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+    df_out = pd.DataFrame([params])
+    df_out.to_csv(output_csv_path, index=False)
+
+    print(f"Saved MVP NB parameters to {output_csv_path}")
+
 
 
 if __name__ == "__main__":
