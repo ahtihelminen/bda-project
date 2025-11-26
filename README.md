@@ -6,7 +6,7 @@ Drone motion produces a distinctive burst of events relative to the slowly varyi
 
 ---
 
-# MVP Bayesian Model for Drone vs Background
+# NB Bayesian Model for Drone vs Background
 
 ## Data
 
@@ -49,7 +49,7 @@ $
 \log \phi_c \sim \mathcal{N}(0,\,1^2)
 $
 
-Both classes get their own means and dispersions. All priors are proper and simple enough for the MVP.
+Both classes get their own means and dispersions. All priors are proper and simple enough for the NB.
 
 ---
 
@@ -111,7 +111,7 @@ The command expects to find the 0 data folder in the repo root, modify this to t
 
 Next we do the actual model fitting using
 
-    uv run scripts/fit_mvp.py \
+    uv run scripts/fit_NB.py \
     --window 50 \
     --grid-rows 180 \
     --grid-cols 320 \
@@ -121,10 +121,10 @@ Next we do the actual model fitting using
 NOTE: This takes a while (~1-2 min), be patient...
 Finally, the output should look like this
 
-    Exported MVP table with 128563200 rows to ./data/counts_0_50_180_320.parquet
+    Exported NB table with 128563200 rows to ./data/counts_0_50_180_320.parquet
     Using subset of 10000 rows out of 128563200 for MAP.
     MAP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   0% 0:00:03 logp = -1,304.3, ||grad|| = 0.00016224
-    Fitted MVP Negative Binomial model parameters (MAP):
+    Fitted NB Negative Binomial model parameters (MAP):
     mu0: 0.1184
     mu1: 6.5907
     phi0: 0.0055
@@ -136,7 +136,7 @@ Finally, the output should look like this
 
 This fitted the model parameters and wrote parquet file containing the event counts for each time and space bin. Next time we can run 
 
-    uv run scripts/fit_mvp.py \
+    uv run scripts/fit_NB.py \
     --window 50 \
     --grid-rows 180 \
     --grid-cols 320 \
