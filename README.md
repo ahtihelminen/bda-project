@@ -111,7 +111,7 @@ The command expects to find the 0 data folder in the repo root, modify this to t
 
 Next we do the actual model fitting using
 
-    uv run scripts/fit_NB.py \
+    uv run scripts/fit_nb.py \
     --window 50 \
     --grid-rows 180 \
     --grid-cols 320 \
@@ -136,7 +136,7 @@ Finally, the output should look like this
 
 This fitted the model parameters and wrote parquet file containing the event counts for each time and space bin. Next time we can run 
 
-    uv run scripts/fit_NB.py \
+    uv run scripts/fit_nb.py \
     --window 50 \
     --grid-rows 180 \
     --grid-cols 320 \
