@@ -157,7 +157,7 @@ def main() -> None:
     parser.add_argument(
         "--threshold",
         type=float,
-        default=0.1,
+        default=0.5,
         help="Decision threshold on P(z=1|y) for accuracy/precision/recall.",
     )
 
@@ -290,7 +290,7 @@ def main() -> None:
     metrics_nb = binary_classification_metrics(z_true, p_drone_nb, threshold=args.threshold)
     metrics_hier = binary_classification_metrics(z_true, p_drone_hier, threshold=args.threshold)
 
-    print("\n=== nb model ===")
+    print("\n=== NB model ===")
     print(f"ROC AUC: {auc_nb:.4f}")
     print(
         f"Accuracy: {metrics_nb['accuracy']:.4f}, "
@@ -302,7 +302,7 @@ def main() -> None:
         f"FP={metrics_nb['fp']:.0f}, FN={metrics_nb['fn']:.0f}"
     )
 
-    print("\n=== Hierarchical model ===")
+    print("\n=== Hierarchical NB model ===")
     print(f"ROC AUC: {auc_hier:.4f}")
     print(
         f"Accuracy: {metrics_hier['accuracy']:.4f}, "

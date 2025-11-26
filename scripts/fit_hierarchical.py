@@ -19,6 +19,7 @@ def fit_hierarchical_nb_model(
     target_accept: float = 0.9,
     chains: int = 4,
     cores: int | None = None,
+    idata_path: str = "./data/hierarchical_nb_idata.nc",
     patch_csv: str | None = "./data/hierarchical_patch_means.csv",
     global_csv: str | None = "./data/hierarchical_global_means.csv",
 ) -> dict[str, float]:
@@ -82,6 +83,9 @@ def fit_hierarchical_nb_model(
         b_raw = pm.Normal("b_raw", mu=0.0, sigma=1.0, shape=n_patches)
         b = pm.Deterministic("b", b_raw * sigma_b)
 
+        # Deterministic transforms
+        mu0 = pm.Deterministic("mu0", pm.math.exp(log_mu0))  # type: ignore[arg-type]  # noqa: F841
+        mu1 = pm.Deterministic("mu1", pm.math.exp(log_mu1))  # type: ignore[arg-type]  # noqa: F841
         alpha0 = pm.Deterministic("alpha0", pm.math.exp(log_phi0))  # type: ignore[arg-type]
         alpha1 = pm.Deterministic("alpha1", pm.math.exp(log_phi1))  # type: ignore[arg-type]
 
@@ -106,6 +110,13 @@ def fit_hierarchical_nb_model(
             cores=cores,
             return_inferencedata=True,
         )
+    
+    # Save InferenceData
+    # Save InferenceData
+    idata_out = Path(idata_path)
+    idata_out.parent.mkdir(parents=True, exist_ok=True)
+    idata.to_netcdf(idata_out) # type: ignore
+    print(f"Saved NB InferenceData to {idata_out}")
 
     post = idata.posterior # type: ignore
 
@@ -216,6 +227,12 @@ def main() -> None:
         help="Path to .dat file. Not used if --counts-parquet is provided.",
     )
     parser.add_argument(
+        "--idata-out",
+        type=str,
+        default="./data/hier_idata.nc",
+        help="Where to save the InferenceData NetCDF file.",
+    )
+    parser.add_argument(
         "--max-samples",
         type=int,
         default=10000,
@@ -265,7 +282,7 @@ def main() -> None:
         out_path = Path("./data") / parquet_file_name
         out_path.parent.mkdir(parents=True, exist_ok=True)
         counts.to_parquet(out_path, index=False)
-        print(f"Exported MVP table with {len(counts)} rows to {out_path}")
+        print(f"Exported counts table with {len(counts)} rows to {out_path}")
 
     if args.labels_csv is not None:
         labels = pd.read_csv(args.labels_csv)
@@ -288,7 +305,7 @@ def main() -> None:
         random_state=args.random_state,
     )
 
-    print("Fitted hierarchical Negative Binomial model parameters (MAP):")
+    print("Fitted hierarchical Negative Binomial model parameters:")
     for k, v in params.items():
         print(f"  {k}: {v:.4f}")
 
