@@ -37,7 +37,7 @@ def _get_param(
         - posterior[name]
         - exp(posterior[log_name]) if log_name is given
     """
-    posterior = idata.posterior
+    posterior = idata.posterior # type: ignore
 
     if name in posterior:
         arr = posterior[name].values  # (chain, draw, ...)
@@ -343,7 +343,7 @@ def main() -> None:
 
 
     fig.suptitle("Posterior predictive checks for NB model", fontsize=14)
-    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95]) # type: ignore
     plt.show()
 
     out_path = Path(f".data/{args.output_prefix}_ppc_nb.png")

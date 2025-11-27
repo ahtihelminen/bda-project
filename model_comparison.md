@@ -58,7 +58,7 @@ Together, these metrics demonstrate that:
 This section fulfills the optional/bonus predictive performance requirement by quantitatively comparing models and discussing the practical value and limitations of their detection accuracy.
 
 
-## 10. Model comparison using PSIS-LOO
+## 11. Model comparison using PSIS-LOO
 
 We compared the simple NB model and the hierarchical NB model using PSIS-LOO cross-validation. For both models we computed the pointwise log-likelihood for 30 000 held-out observations and 4 000 posterior draws, then used ArviZ to estimate the expected log predictive density (elpd_loo) and the effective number of parameters (p_loo). Higher elpd_loo indicates better out-of-sample predictive performance.
 

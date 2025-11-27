@@ -149,3 +149,4 @@ Overall, the hierarchical NB model shows **clean convergence**, with some natura
 
 ## 8. PCC
 
+check hieararchical_nb_pcc.png
