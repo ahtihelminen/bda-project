@@ -107,14 +107,13 @@ def draw_grid(
     for r in range(1, rows):
         y = int(round(r * step_y))
         cv2.line(frame, (0, y), (w, y), color, thickness, cv2.LINE_AA)
-
 def draw_prob_heatmap(
     frame: np.ndarray,
     probs: np.ndarray,
     rows: int,
     cols: int,
-    alpha: float = 0.5,
-    p_vis: float = 0.5,  # minimum probability to start visualizing
+    alpha: float = 1,   # overall scale, 1.0 → use full 1.0→0.2 range
+    p_vis: float = 0.85,   # minimum probability to start visualizing
 ) -> None:
     h, w = frame.shape[:2]
     patch_w = w / cols
@@ -124,25 +123,31 @@ def draw_prob_heatmap(
     if alpha <= 0.0:
         return
 
+    # base opacity range: 1.0 (fully opaque) down to 0.2
+    base_max = 1
+    base_min = 0.4
+
     for r in range(rows):
         for c in range(cols):
             p = float(np.clip(probs[r, c], 0.0, 1.0))
-
+            # print(f"Patch ({r}, {c}): p={p:.3f}")
             # below threshold -> do not color this patch
             if p < p_vis:
                 continue
 
-            # normalize into [0,1] range for gradient
+            # normalize into [0,1] for scaling
             p_scaled = (p - p_vis) / (1.0 - p_vis)
             p_scaled = float(np.clip(p_scaled, 0.0, 1.0))
 
-            # BLUE → RED gradient in BGR:
-            #   blue = 255*(1 - p_scaled)
-            #   red  = 255*p_scaled
-            blue = int(round(255 * (1.0 - p_scaled)))
-            red = int(round(255 * p_scaled))
-            green = 0
-            color = (blue, green, red)  # BGR
+            # opacity mapping:
+            #   p_scaled = 0  -> opacity = 1.0 (fully opaque)
+            #   p_scaled = 1  -> opacity = 0.2 (mostly transparent)
+            # "increasingly" decreasing: use quadratic to drop faster near high p
+            raw_opacity = base_max - (p_scaled ** 2) * (base_max - base_min)
+            patch_alpha = alpha * raw_opacity  # global scale
+
+            # fixed color, no gradient
+            color = (0, 0, 255)  # red in BGR
 
             x0 = int(round(c * patch_w))
             x1 = int(round((c + 1) * patch_w))
@@ -154,5 +159,4 @@ def draw_prob_heatmap(
                 continue
 
             overlay = np.full_like(roi, color, dtype=np.uint8)
-            cv2.addWeighted(overlay, alpha, roi, 1.0 - alpha, 0, dst=roi)
-
+            cv2.addWeighted(overlay, 1-patch_alpha, roi, patch_alpha, 0, dst=roi)

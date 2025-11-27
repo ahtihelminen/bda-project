@@ -15,6 +15,83 @@ from bda.rendering import (
     draw_grid,  # noqa: F401
     draw_prob_heatmap,
 )
+
+def interpolate_boxes_at_time(
+    tracks: dict[int, dict[str, np.ndarray]],
+    t_query: float,
+) -> list[tuple[int, float, float, float, float]]:
+    """
+    For each track (class id), linearly interpolate bbox coords at time t_query.
+
+    Returns: list of (cls_id, x1, y1, x2, y2) for tracks where
+    t_query is between first and last annotation.
+    """
+    out: list[tuple[int, float, float, float, float]] = []
+    for cls_id, tr in tracks.items():
+        t_arr = tr["timestamp_s"]
+        if t_query < t_arr[0] or t_query > t_arr[-1]:
+            continue  # no box outside annotated range
+
+        x1 = float(np.interp(t_query, t_arr, tr["x0"]))
+        y1 = float(np.interp(t_query, t_arr, tr["y0"]))
+        x2 = float(np.interp(t_query, t_arr, tr["x1"]))
+        y2 = float(np.interp(t_query, t_arr, tr["y1"]))
+        out.append((cls_id, x1, y1, x2, y2))
+    return out
+
+
+
+def load_boxes(txt_path: str) -> pd.DataFrame:
+    """
+    TXT format (one per line):
+
+        timestamp_s: x0, y0, x1, y1, drone_id
+
+    Example:
+        13.533198: 1245.77, 410.62, 1281.63, 462.98, 1
+    """
+    timestamps = []
+    x0s = []
+    y0s = []
+    x1s = []
+    y1s = []
+    ids = []
+
+    with open(txt_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            ts_part, coords_part = line.split(":")
+            timestamp_s = float(ts_part.strip())
+
+            parts = [p.strip() for p in coords_part.split(",")]
+            if len(parts) != 5:
+                raise ValueError(f"Line has wrong format: {line}")
+
+            x0, y0, x1, y1 = map(float, parts[:4])
+            drone_id = int(float(parts[4]))
+
+            timestamps.append(timestamp_s)
+            x0s.append(x0)
+            y0s.append(y0)
+            x1s.append(x1)
+            y1s.append(y1)
+            ids.append(drone_id)
+
+    df = pd.DataFrame(
+        {
+            "timestamp_s": timestamps,
+            "x0": x0s,
+            "y0": y0s,
+            "x1": x1s,
+            "y1": y1s,
+            "drone_id": ids,
+        }
+    )
+    return df
+
 # ---------- NB classifier helpers ----------
 
 
@@ -171,6 +248,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--bbox-txt",
+        type=str,
+        default=None,
+        help=(
+            "Optional .txt file with bounding boxes of the form "
+            "'time: x1, y1, x2, y2, class_id'."
+        ),
+    )
+
+    parser.add_argument(
         "--heatmap-alpha",
         type=float,
         default=0.6,
@@ -211,6 +298,20 @@ def main() -> None:
     )
 
     pacer = Pacer(speed=args.speed, force_speed=args.force_speed)
+
+    bbox_df = load_boxes(args.bbox_txt) if args.bbox_txt else None
+
+    tracks: dict[int, dict[str, np.ndarray]] = {}
+    if bbox_df is not None:
+        bbox_df = bbox_df.sort_values("timestamp_s")
+        for cls_id, g in bbox_df.groupby("drone_id"):
+            tracks[int(cls_id)] = { # type: ignore
+                "timestamp_s": g["timestamp_s"].to_numpy(),
+                "x0": g["x0"].to_numpy(),
+                "y0": g["y0"].to_numpy(),
+                "x1": g["x1"].to_numpy(),
+                "y1": g["y1"].to_numpy(),
+                }
 
     cv2.namedWindow("Evio Player", cv2.WINDOW_NORMAL)
     for batch_range in pacer.pace(src.ranges()):
@@ -256,6 +357,32 @@ def main() -> None:
             cols=args.grid_cols,
             alpha=float(args.heatmap_alpha),
         )
+
+        # Draw interpolated bounding boxes for this window
+        if bbox_df is not None:
+            t_start_sec = batch_range.start_ts_us / 1e6
+            t_stop_sec = batch_range.end_ts_us / 1e6
+            t_mid = 0.5 * (t_start_sec + t_stop_sec)
+
+            interp_boxes = interpolate_boxes_at_time(tracks, t_mid)
+
+            for cls_id, x1_f, y1_f, x2_f, y2_f in interp_boxes:
+                x1 = int(round(x1_f))
+                y1 = int(round(y1_f))
+                x2 = int(round(x2_f))
+                y2 = int(round(y2_f))
+
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(
+                    frame,
+                    f"id:{cls_id}",
+                    (x1, max(0, y1 - 5)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 0),
+                    1,
+                    cv2.LINE_AA,
+                )
 
         # Optional grid overlay on top
         # draw_grid(frame, rows=args.grid_rows, cols=args.grid_cols)
