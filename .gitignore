@@ -1,6 +1,6 @@
 .venv
 
 /data
-/final_data
+/final_data*
 
 __pycache__
